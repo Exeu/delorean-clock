@@ -94,14 +94,10 @@ bool printTimeToSegments() {
     return false;
   }
 
-  char sa[] = "";
-  sprintf(sa, "%02d%02d", month(), day());
-  green1.print(sa);
-  green2.print(year());
-  green3.printTime(hour(), minute(), false); 
-
+  char date[] = "";
+  sprintf(date, "%02d%02d", month(), day());
+  rowPresentTime.updateRow(date, year(), hour(), minute());
   lastMinute = currentMinute;
-
   return true;
 }
 
@@ -110,13 +106,8 @@ bool initializeSegments() {
     return false;
   }
 
-  red1.print("0516");
-  red2.print(2028);
-  red3.printTime(10, 07, false);
-
-  yellow1.print("0516"); 
-  yellow2.print(1987);
-  yellow3.printTime(14, 07, false);
+  rowDestinationTime.updateRow("0516", 2028, 10, 07);
+  rowDepartedTime.updateRow("0516", 1987, 14, 07);
 
   initialized = true;
 

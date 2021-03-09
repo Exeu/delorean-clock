@@ -17,5 +17,5 @@ class SegmentRow {
 
         };
         void start(int backlight);
-        void updateRow(char date[], int year, int hour, int minute);
+        void updateRow(char date[], uint8_t year, uint8_t hour, uint8_t minute);
 };
