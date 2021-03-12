@@ -3,27 +3,22 @@
 #include "SevenSegmentExtended.h"
 #include "SegmentRow.h"
 
-#include "DCF77.h"
+#include "dcf77.h"
 #include "Time.h"
 
 #define DCF_PIN 2	         // Connection pin to DCF 77 device
-#define DCF_INTERRUPT 0		 // Interrupt number associated with pin
 
-time_t time;
-DCF77 DCF = DCF77(DCF_PIN,DCF_INTERRUPT, false);
-
+const uint8_t dcf77_sample_pin = 53;
+const uint8_t dcf77_inverted_samples = 1;
 // Sortie horloge Rouge
 const byte PIN_CLK_Green = A1;   // define CLK pin  
 const byte PIN_CLK_Red = A0;   // define CLK pin  
 const byte PIN_CLK_Yellow = A2;   // define CLK pin  
 // Sortie horloge Verte
 
-
 const byte PIN_DIO_Y1 = 11;
 const byte PIN_DIO_Y2 = 10;
 const byte PIN_DIO_Y3 = 9;
-
-
 
 const byte PIN_DIO_G1 = 8;
 const byte PIN_DIO_G2 = 7;
@@ -51,7 +46,7 @@ SegmentRow rowDepartedTime(yellow1, yellow2, yellow3);
 
 bool initialized = false;
 int lastMinute = -1;
-int backlight = 50;
+int backlight = 10;
 
 void bootstrapSegments() {
   pinMode(PIN_CLK_Green, OUTPUT);
@@ -76,64 +71,75 @@ void bootstrapSegments() {
 
 void initializeSegments() 
 {
-  rowDestinationTime.updateRow("0516", random(1900, 2300), 10, 07);
-  rowDepartedTime.updateRow("0516", 1987, 14, 07);
-  initialized = true;
 }
 
 unsigned long getDCFTime()
 { 
-  time_t DCFtime = DCF.getTime();
-  // Indicator that a time check is done
-  if (DCFtime!=0) {
-    initializeSegments();  
-  }
-  return DCFtime;
+  return 100L;
+}
+
+uint8_t sample_input_pin() {
+    const uint8_t sampled_data = dcf77_inverted_samples ^ digitalRead(DCF_PIN);
+    return sampled_data;
 }
 
 void setup() 
 {
-  pinMode(DCF_PIN, INPUT);
+  using namespace Clock;
+  pinMode(DCF_PIN, INPUT_PULLUP);
   Serial.begin(9600);
 
   bootstrapSegments();
   delay(3000);
 
-  DCF.Start();
-  setSyncInterval(1);
-  setSyncProvider(getDCFTime);
-}
+  DCF77_Clock::setup();
+  DCF77_Clock::set_input_provider(sample_input_pin);
 
-void scheduleResync() {
-  initialized = false;
-  bootstrapSegments();
+  for (uint8_t state = Clock::useless;
+    state == Clock::useless || state == Clock::dirty;
+    state = DCF77_Clock::get_clock_state()) {
+
+    // wait for next sec
+    Clock::time_t now;
+    DCF77_Clock::get_current_time(now);
+
+    // render one dot per second while initializing
+    static uint8_t count = 0;
+    sprint('.');
+    ++count;
+    if (count == 60) {
+        count = 0;
+        sprintln();
+    }
+  }
+
+  rowDestinationTime.updateRow("0516", random(1900, 2300), 10, 07);
+  rowDepartedTime.updateRow("0516", 1987, 14, 07);
+  initialized = true;
 }
 
 void printTimeToSegments() 
 {
-  if (!initialized) {
-    return;
+  Clock::time_t now;
+  DCF77_Clock::get_current_time(now);
+  switch (DCF77_Clock::get_clock_state()) {
+    case Clock::useless: sprint(F("useless ")); break;
+    case Clock::dirty:   sprint(F("dirty:  ")); break;
+    case Clock::synced:  sprint(F("synced: ")); break;
+    case Clock::locked:  sprint(F("locked: ")); break;
   }
-
-  int currentMinute = minute();
+  int currentMinute = now.minute.val;
   if (lastMinute == currentMinute) {
     return;
   }
 
-  if (currentMinute == 0 && hour() == 4) {
-    scheduleResync();
-    return;
-  }
-
   char date[] = "";
-  sprintf(date, "%02d%02d", month(), day());
-  rowPresentTime.updateRow(date, year(), hour(), minute());
+  sprintf(date, "%02d%02d", now.month.val, now.day.val);
+  rowPresentTime.updateRow(date, now.year.val, now.hour.val, now.minute.val);
   lastMinute = currentMinute;
 }
 
 void loop() 
 {
-  now();
   printTimeToSegments();
-  delay(100);
 }
