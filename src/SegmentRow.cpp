@@ -11,7 +11,7 @@ void SegmentRow::start(int backlight) {
     this->displayYear->setBacklight(backlight);
 };
 
-void SegmentRow::updateRow(char date[], uint8_t year, uint8_t hour, uint8_t minute) {
+void SegmentRow::updateRow(char date[], int year, uint8_t hour, uint8_t minute) {
     this->displayDate->print(date);
     this->displayYear->printNumber(year);
     this->displayTime->printTime(hour, minute, false);

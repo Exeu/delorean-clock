@@ -74,53 +74,66 @@ void bootstrapSegments() {
   rowPresentTime.start(backlight);
 }
 
+void initializeSegments() 
+{
+  rowDestinationTime.updateRow("0516", random(1900, 2300), 10, 07);
+  rowDepartedTime.updateRow("0516", 1987, 14, 07);
+  initialized = true;
+}
 
-void setup() {
+unsigned long getDCFTime()
+{ 
+  time_t DCFtime = DCF.getTime();
+  // Indicator that a time check is done
+  if (DCFtime!=0) {
+    initializeSegments();  
+  }
+  return DCFtime;
+}
+
+void setup() 
+{
   pinMode(DCF_PIN, INPUT);
   Serial.begin(9600);
 
   bootstrapSegments();
   delay(3000);
+
   DCF.Start();
+  setSyncInterval(1);
+  setSyncProvider(getDCFTime);
 }
 
-bool printTimeToSegments() {
+void scheduleResync() {
+  initialized = false;
+  bootstrapSegments();
+}
+
+void printTimeToSegments() 
+{
   if (!initialized) {
-    return false;
+    return;
   }
 
   int currentMinute = minute();
   if (lastMinute == currentMinute) {
-    return false;
+    return;
+  }
+
+  if (currentMinute == 0 && hour() == 4) {
+    scheduleResync();
+    return;
   }
 
   char date[] = "";
   sprintf(date, "%02d%02d", month(), day());
   rowPresentTime.updateRow(date, year(), hour(), minute());
   lastMinute = currentMinute;
-  return true;
 }
 
-bool initializeSegments() {
-  if (initialized) {
-    return false;
-  }
-
-  rowDestinationTime.updateRow("0516", 2028, 10, 07);
-  rowDepartedTime.updateRow("0516", 1987, 14, 07);
-
-  initialized = true;
-
-  return true;
-}
-void loop() {
-  time_t DCFtime = DCF.getTime();
-  if (DCFtime!=0) {
-    Serial.println("Time is updated");
-    setTime(DCFtime);
-    initializeSegments();
-  }	
-  
-  delay(1000);
+void loop() 
+{
+  now();
   printTimeToSegments();
+  delay(100);
 }
